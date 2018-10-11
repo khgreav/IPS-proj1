@@ -1,0 +1,119 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Paralelní SED
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Vytvořte program založený na vláknech, který bude provádět paralelní sed. Výsledná binárka "psed"
+bude mít i vstupních parametrů (priklady vstupu naleznete v souboru tests.txt):
+
+pgrep RE1 REPL1 [ RE2 REPL2 ] [ RE3  REPL3 ] ...
+
+RE: regulární výraz (uvažujme regulární výrazy užívané v C++11)
+
+Minimální počet parametrů je 1, maximální není omezen.
+
+Program psed funguje nasledovne:
+1) Hlavní vlákno načte řádek ze standardního vstupu.
+2) Předá řízení pracovním vláknům, kde každé z nich provede náhradu rádku ze vstupu pomocí regulárního výrazu "REi". Výsledek bude REPLi
+3) Pracovní vlákna vytisknou výsledek na standardní vstup, a to v pořadí daném parametry vstupu -- tedy výsledek dle 
+   RE1 je vytisknut první, následuje výsledek záměny dle RE2, atd.
+4) Pracovní vláka předají rízení hlavnímu vláknu
+5) Pokud je na vstupu další řádka, tak se pokračuje bodem 1.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Příklad
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Mějme následující vstup:
+------------------
+Ahoj, tohle je pokus
+jestli to bude fungovat 23
+211 je vysledek
+
+------------------
+
+./psed '(.*) tohle (.*)' '$2 XX $1' 'je ' 'byl '
+
+Výsledek je následující:
+------------------
+je pokus XX Ahoj,
+Ahoj, tohle byl pokus
+jestli to bude fungovat 23
+jestli to bude fungovat 23
+211 je vysledek
+211 byl vysledek
+
+
+------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Výpočet bude probíhat následovně:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+1) Spusí se "k" vláken, každé pro jeden regulární výraz. Vlákna čekají, až jim bude předáno řízení hlavním vláknem.
+2) Hlavní vlákno načte jednu řádku ze vstupu.
+3) Pokud na vstupu žádná řádka nebyla, jsou všechna vlákna probuzena a korektně ukončena. Celý program končí.
+4) Řízení předáno vláknům pro aplikaci reg. výrazu a vlákna __paralelně__ tuto aplikaci provádí.
+5) Vlákna vypíší výsledeky ve správném pořadí.
+6) Řízení je předáno zpět hlavnímu vláknu.
+7) Pokračuje se bodem 2.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Požadavky na implementaci:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Program musí splňovat následující požadavky:
+1) Pro každý RE na vstupu se na začátku spustí jedno vlákno a to běží až do konce
+2) V rámci jednoho vlákna lze provádět aplikaci pouze jednoho RE. 
+3) Pro aplikaci regulárního výrazu použijte "#include <regex>" a "std::regex_replace(string,REi,REPLi)" --- viz priklad z democvika na regulární výrazy.
+3a) Můžete použít i jinou knihovnu pro práci s Reg výrazy.
+4) Pro komunikaci mezi vlákny využijte globální proměnná a pro synchronizaci mutexy (pthread mutex, nebo
+C++ mutex).
+5) Vlákna mohou aktivně čekat:
+	mutex.lock();
+	white (x!=1) {
+		mutex.unlock();
+		mutex.lock();
+	}
+	mutex.unlock();
+		
+
+Dávejte pozor na data race (vstup, score, proměnné pro komunikaci ...) a deadlock.
+Není problém, aby více vláken najednou četlo ze stejné globální proměnné, ale pokud se zapisuje, je třeba zajistit atomicitu.
+
+Za účelem testování můžete vložit na vhodná místa do kódu usleep(1). V odevzdaném kódu již usleep nebude.
+
+Implementace bude napsána v jazyce C s možností použití následujících komponent jazyka C++:
+
+- regulární výrazy z C++11 (#include <regex>)
+- vlákna a zámky z C++11 (#include <thread>, #include <mutex>)
+- pole proměnné délky z C++11 (#include <vector>) pro uchování threadů a zámků.
+- funkce int read_input_line(char *) ze souboru kostra_psed.c
+- funkce char *to_cstr(std::string a) ze souboru kostra_psed.c
+
+Překlad bude prováděn buď:
+$ gcc psed.c -o psed -lpthread
+nebo
+$ g++ psed.c -o psed -lpthread
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Kostra programu a vzorové řešení
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+V adresáři /homes/kazi/rogalew/verifikace/IPS-projekt2 naleznete následující soubory:
+* psed - vzorové řešení
+* tests.txt - testy
+* kompilace.txt - jak zkompilovat
+* kostra_psed.c - základní kostra programu, ze které můžete vyjít. Vytváří pole vláken a pole zánků a následně je ruší. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Odevzdání
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Jeden soubor psed.c odevzdejte do čtvrtka 18.10. do 12:00 prostřednictvím WISu k příslušnému termínu.
+Na semináři dne 18.10. bude představeno vzorové řešení.
+
+

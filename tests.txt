@@ -1,0 +1,12 @@
+./psed '(.*)wheel(.*)' '$1kolo$2' < sudoers
+./psed '(.*)wheel(.*)' '$1kolo$2' 'root' 'superman' < sudoers
+./psed '(.*)wheel(.*)' '$1kolo$2' 'root' 'superman' 'ALL.*' 'KONEC' < sudoers
+./psed '(.*)wheel(.*)' '$1kolo$2' 'root' 'superman' 'ALL.*' 'KONEC' '(.*)ALL(.*)ALL(.*)'
+'$3LLA$2LLA$1' < sudoers
+
+./psed '[^:]*-[^:]*:' 'SKUPINA:' <group
+./psed '[^:]*-[^:]*:' 'SKUPINA:' '([^:]*):(.*)' '$2<>$1' <group
+./psed '[^:]*-[^:]*:' 'SKUPINA:' '([^:]*):(.*)' '$2<>$1' 'root' 'superman' <group
+
+./psed 'psed' 'projekt' '\+\+' '--' < zadani.txt
+./psed 'psed' 'projekt' '\+\+' '--' '<(.*)>' '>$1<' < zadani.txt

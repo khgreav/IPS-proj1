@@ -9,7 +9,7 @@ int
 main(int argc, char **argv)
 {
     if (argc % 2 == 0 && argc >= 4) { //argument control
-
+        //todo
     } else {
         printf("Invalid number of arguments.\n");
     }

@@ -1,6 +1,9 @@
 /* Karel Hanák (xhanak34), David Sedlák (xsedla1d) */
 #include <stdlib.h>
 #include <stdio.h>
+#include <regex>
+
+using namespace std;
 
 int
 main(int argc, char **argv)

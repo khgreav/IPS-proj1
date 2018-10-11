@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
     if (argc % 2 == 0 && argc >= 4) { //argument control
 
     } else {

@@ -58,12 +58,6 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 			}
 		}
 
-		//std::regex_replace(line,RE,REPL)
-		//malloc(sizeof(*buf) * strlen(line) + 1);
-		//strcpy(buf, line);
-		//std::regex re1(RE);
-		//std::string res = std::regex_replace((std::vector<char *>)*buf, re1, REPL);
-
 		/* make sure all threads are in the chain before entering the stage of unchaining */
 		while(in_chain != thread_count);
 
@@ -75,8 +69,12 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 			zamky[ID - 1]->lock();
 		}
 
+		/* aply regex */
+		std::regex re1(RE);
+		std::string res = std::regex_replace(line, re1, REPL);
+		char *str = to_cstr(res);
 		/* print the output */
-		printf("%d - %s\n", ID, line);
+		printf("%s\n", str);
 
 		/* unchaining - unlock next thread in chain */
 		if (ID != (thread_count - 1)) {

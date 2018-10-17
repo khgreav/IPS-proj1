@@ -1,2 +1,2 @@
 all:
-	g++ psed.c -o psed -lpthread
+	g++ psed.c -o psed -lpthread -g

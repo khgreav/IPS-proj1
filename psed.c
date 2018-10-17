@@ -11,7 +11,7 @@
 
 //using namespace std;
 
-std::vector<std::mutex *> zamky; /* pole zamku promenne velikosti */
+std::vector<std::mutex *> zamky;
 std::mutex *entered_chain_mutex;
 
 bool line_ready = false, line_processed = false, terminate = false;
@@ -37,7 +37,6 @@ char *read_line(int *res) {
 		*res = 0;
 		return NULL;
 	}
-
 }
 
 void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
@@ -55,7 +54,7 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 
 		while (!line_ready) {
 			if (terminate) {
-				exit(EXIT_SUCCESS);
+				return;
 			}
 		}
 
@@ -68,15 +67,18 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 		/* make sure all threads are in the chain before entering the stage of unchaining */
 		while(in_chain != thread_count);
 
-		/* unchain */
-		/* Thread with id 0 doesn't have to wait for anything */
+		/**
+		 * Wait for output of predecesing thread
+		 * Thread with id 0 doesn't have to wait for anything
+		 */
 		if (!ID == 0) {
 			zamky[ID - 1]->lock();
 		}
 
-		/* print the output and unlock next thread in chain */
+		/* print the output */
 		printf("%d - %s\n", ID, line);
 
+		/* unchaining - unlock next thread in chain */
 		if (ID != (thread_count - 1)) {
 			zamky[ID]->unlock();
 		}
@@ -88,7 +90,10 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 		if (ID != (thread_count - 1)) {
 			zamky[ID]->unlock();
 		} else {
-		/* last thread must set information about completing the line */
+		/**
+		 * last thread must set information about completing the line
+		 * and set default value of shared variables
+		 */
 			line_ready = false;
 			line_processed = true;
 			in_chain = 0;
@@ -131,12 +136,18 @@ int main(int argc, char **argv) {
 	int res;
 	line = read_line(&res);
 	line_ready = true;
+	if (res) {
+		line_ready = true;
+	}
+
 	while (res) {
 		while(!line_processed);
 		free(line); /* uvolnim pamet */
 	 	line = read_line(&res);
+		if (res) {
+			line_ready = true;
+		}
 		line_processed = false;
-		line_ready = true;
 	}
 	terminate = true;
 
@@ -145,7 +156,9 @@ int main(int argc, char **argv) {
 		(*(threads[i])).join();
 		delete threads[i];
 	}
+
 	/* uvolnime pamet zamku */
+	delete entered_chain_mutex;
 	for(int i = 0;i < lock_count; i++){
 		delete zamky[i];
 	}

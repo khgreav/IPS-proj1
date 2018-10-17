@@ -12,10 +12,10 @@
 //using namespace std;
 
 std::vector<std::mutex *> zamky;
-std::mutex *entered_chain_mutex;
+std::mutex *entered_chain_mutex, *finished_mutex;
 
 bool line_ready = false, line_processed = false, terminate = false;
-int in_chain = 0;
+int in_chain = 0, finished = 0;
 char *line;
 
 char *to_cstr(std::string a) {
@@ -41,7 +41,9 @@ char *read_line(int *res) {
 
 void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 	char *buf;
+	int iteration = 0;
 	while (1) {
+		//printf("THREAD %d stared %d. iteration\n", ID, iteration++);
 		/* lock mutex for next thread in chain, no one is waiting for last thread */
 		if (ID != (thread_count - 1)) {
 			zamky[ID]->lock();
@@ -50,6 +52,7 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 		/* thread ID is now part of the chain, increment shared counter of threads in chain */
 		entered_chain_mutex->lock();
 		in_chain++;
+		//printf("Thread %d, in chain value - %d\n",ID, in_chain);
 		entered_chain_mutex->unlock();
 
 		while (!line_ready) {
@@ -69,21 +72,12 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 			zamky[ID - 1]->lock();
 		}
 
-		/* aply regex */
+		/* apply regex */
 		std::regex re1(RE);
 		std::string res = std::regex_replace(line, re1, REPL);
 		char *str = to_cstr(res);
 		/* print the output */
 		printf("%s\n", str);
-
-		/* unchaining - unlock next thread in chain */
-		if (ID != (thread_count - 1)) {
-			zamky[ID]->unlock();
-		}
-		/* unlock mutex of predeceasing thread to be ready for next line */
-		if (ID != 0) {
-			zamky[ID - 1]->unlock();
-		}
 
 		if (ID != (thread_count - 1)) {
 			zamky[ID]->unlock();
@@ -92,13 +86,23 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 		 * last thread must set information about completing the line
 		 * and set default value of shared variables
 		 */
+			in_chain = 0;
+			//printf("Thread %d reset in_chain to %d\n", ID, in_chain);
 			line_ready = false;
 			line_processed = true;
-			in_chain = 0;
+		}
+
+		/* unlock mutex of predeceasing thread to be ready for next line */
+		if (ID != 0) {
+			zamky[ID - 1]->unlock();
 		}
 
 		/* threads wait until the line is processed */
 		while(!line_processed);
+
+		finished_mutex->lock();
+		finished++;
+		finished_mutex->unlock();
 	}
 }
 
@@ -117,11 +121,24 @@ int main(int argc, char **argv) {
 	std::vector <std::thread *> threads; /* pole threadu promenne velikosti */
 
 	/* vytvorime zamky */
-	zamky.resize(lock_count); /* nastavime si velikost pole zamky */
-	entered_chain_mutex = new std::mutex();
+
+	try {
+		entered_chain_mutex = new std::mutex();
+		finished_mutex = new std::mutex();
+
+		zamky.resize(lock_count); /* nastavime si velikost pole zamky */
+	} catch (std::bad_alloc&) {
+		return(EXIT_FAILURE);
+	}
+
 	for (int i = 0; i < lock_count; i++) {
-		std::mutex *new_zamek = new std::mutex();
-		zamky[i] = new_zamek;
+		try {
+			std::mutex *new_zamek = new std::mutex();
+			zamky[i] = new_zamek;
+		} catch (std::bad_alloc&) {
+			return(EXIT_FAILURE);
+		}
+
 	}
 
 	/* vytvorime thready */
@@ -133,19 +150,23 @@ int main(int argc, char **argv) {
 
 	int res;
 	line = read_line(&res);
-	line_ready = true;
 	if (res) {
 		line_ready = true;
 	}
-
+	int processed = 0;
 	while (res) {
 		while(!line_processed);
+		//printf("%d\n", processed++);
 		free(line); /* uvolnim pamet */
 	 	line = read_line(&res);
+
+		while (finished != thread_count);
+		finished = 0;
+		line_processed = false;
+
 		if (res) {
 			line_ready = true;
 		}
-		line_processed = false;
 	}
 	terminate = true;
 
@@ -157,6 +178,7 @@ int main(int argc, char **argv) {
 
 	/* uvolnime pamet zamku */
 	delete entered_chain_mutex;
+	delete finished_mutex;
 	for(int i = 0;i < lock_count; i++){
 		delete zamky[i];
 	}

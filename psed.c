@@ -61,6 +61,11 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 			}
 		}
 
+		/* apply regex */
+		regex re1(RE);
+		string res = regex_replace(line, re1, REPL);
+		char *str = to_cstr(res);
+
 		/* make sure all threads are in the chain before entering the stage of unchaining */
 		while(in_chain != thread_count);
 
@@ -72,10 +77,6 @@ void worker_thread(int ID, char *RE, char *REPL, int thread_count) {
 			locks[ID - 1]->lock();
 		}
 
-		/* apply regex */
-		regex re1(RE);
-		string res = regex_replace(line, re1, REPL);
-		char *str = to_cstr(res);
 		/* print the output */
 		printf("%s\n", str);
 		free(str);
